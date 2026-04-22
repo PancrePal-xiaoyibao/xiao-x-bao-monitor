@@ -1,0 +1,182 @@
+# 可在 Admin UI 中添加模型（STORE_MODEL_IN_DB=True）。
+# SiliconFlow：对话/向量见官网模型页；Pro 线路多为 Pro/<org>/<model>，若 404 可去掉 Pro/ 前缀试非 Pro id。
+# 价格按 https://siliconflow.cn/pricing 填写，单位为元/token（由 元/M tokens 换算）。
+model_list:
+  - model_name: sf-kimi-k2.5
+    litellm_params:
+      model: openai/Pro/moonshotai/Kimi-K2.5
+      api_base: os.environ/SILICONFLOW_API_BASE
+      api_key: os.environ/SILICONFLOW_API_KEY
+    model_info:
+      input_cost_per_token: 0.000004
+      output_cost_per_token: 0.000021
+  - model_name: Pro/moonshotai/Kimi-K2.5
+    litellm_params:
+      model: openai/Pro/moonshotai/Kimi-K2.5
+      api_base: os.environ/SILICONFLOW_API_BASE
+      api_key: os.environ/SILICONFLOW_API_KEY
+    model_info:
+      input_cost_per_token: 0.000004
+      output_cost_per_token: 0.000021
+  - model_name: sf-kimi-k2-instruct-0905
+    litellm_params:
+      model: openai/Pro/moonshotai/Kimi-K2-Instruct-0905
+      api_base: os.environ/SILICONFLOW_API_BASE
+      api_key: os.environ/SILICONFLOW_API_KEY
+    model_info:
+      input_cost_per_token: 0.000004
+      output_cost_per_token: 0.000016
+  - model_name: sf-glm-4.7-pro
+    litellm_params:
+      model: openai/Pro/zai-org/GLM-4.7
+      api_base: os.environ/SILICONFLOW_API_BASE
+      api_key: os.environ/SILICONFLOW_API_KEY
+    model_info:
+      input_cost_per_token: 0.000004
+      output_cost_per_token: 0.000016
+  - model_name: sf-deepseek-v3.2
+    litellm_params:
+      model: openai/Pro/deepseek-ai/DeepSeek-V3.2
+      api_base: os.environ/SILICONFLOW_API_BASE
+      api_key: os.environ/SILICONFLOW_API_KEY
+    model_info:
+      input_cost_per_token: 0.000002
+      output_cost_per_token: 0.000003
+  - model_name: Pro/deepseek-ai/DeepSeek-V3.2
+    litellm_params:
+      model: openai/Pro/deepseek-ai/DeepSeek-V3.2
+      api_base: os.environ/SILICONFLOW_API_BASE
+      api_key: os.environ/SILICONFLOW_API_KEY
+    model_info:
+      input_cost_per_token: 0.000002
+      output_cost_per_token: 0.000003
+  - model_name: sf-glm-4.5-air
+    litellm_params:
+      model: openai/zai-org/GLM-4.5-Air
+      api_base: os.environ/SILICONFLOW_API_BASE
+      api_key: os.environ/SILICONFLOW_API_KEY
+    model_info:
+      input_cost_per_token: 0.000001
+      output_cost_per_token: 0.000006
+  - model_name: zai-org/GLM-4.5-Air
+    litellm_params:
+      model: openai/zai-org/GLM-4.5-Air
+      api_base: os.environ/SILICONFLOW_API_BASE
+      api_key: os.environ/SILICONFLOW_API_KEY
+    model_info:
+      input_cost_per_token: 0.000001
+      output_cost_per_token: 0.000006
+  - model_name: sf-deepseek-v3.1-terminus-pro
+    litellm_params:
+      model: openai/Pro/deepseek-ai/DeepSeek-V3.1-Terminus
+      api_base: os.environ/SILICONFLOW_API_BASE
+      api_key: os.environ/SILICONFLOW_API_KEY
+    model_info:
+      input_cost_per_token: 0.000004
+      output_cost_per_token: 0.000012
+  - model_name: Pro/deepseek-ai/DeepSeek-V3.1-Terminus
+    litellm_params:
+      model: openai/Pro/deepseek-ai/DeepSeek-V3.1-Terminus
+      api_base: os.environ/SILICONFLOW_API_BASE
+      api_key: os.environ/SILICONFLOW_API_KEY
+    model_info:
+      input_cost_per_token: 0.000004
+      output_cost_per_token: 0.000012
+  - model_name: deepseek-ai/DeepSeek-V3.1-Terminus
+    litellm_params:
+      model: openai/Pro/deepseek-ai/DeepSeek-V3.1-Terminus
+      api_base: os.environ/SILICONFLOW_API_BASE
+      api_key: os.environ/SILICONFLOW_API_KEY
+    model_info:
+      input_cost_per_token: 0.000004
+      output_cost_per_token: 0.000012
+  - model_name: sf-glm-4.5v
+    litellm_params:
+      model: openai/zai-org/GLM-4.5V
+      api_base: os.environ/SILICONFLOW_API_BASE
+      api_key: os.environ/SILICONFLOW_API_KEY
+    model_info:
+      input_cost_per_token: 0.000001
+      output_cost_per_token: 0.000006
+  - model_name: sf-deepseek-ocr
+    litellm_params:
+      model: openai/deepseek-ai/DeepSeek-OCR
+      api_base: os.environ/SILICONFLOW_API_BASE
+      api_key: os.environ/SILICONFLOW_API_KEY
+    model_info:
+      input_cost_per_token: 0.0
+      output_cost_per_token: 0.0
+  - model_name: sf-minimax-m2.5
+    litellm_params:
+      model: openai/Pro/MiniMaxAI/MiniMax-M2.5
+      api_base: os.environ/SILICONFLOW_API_BASE
+      api_key: os.environ/SILICONFLOW_API_KEY
+    model_info:
+      input_cost_per_token: 0.0000021
+      output_cost_per_token: 0.0000084
+  - model_name: sf-qwen3.5-397b-a17b
+    litellm_params:
+      model: openai/Qwen/Qwen3.5-397B-A17B
+      api_base: os.environ/SILICONFLOW_API_BASE
+      api_key: os.environ/SILICONFLOW_API_KEY
+    model_info:
+      input_cost_per_token: 0.0000012
+      output_cost_per_token: 0.000002
+  - model_name: stepfun-ai/Step-3.5-Flash
+    litellm_params:
+      model: openai/stepfun-ai/Step-3.5-Flash
+      api_base: os.environ/SILICONFLOW_API_BASE
+      api_key: os.environ/SILICONFLOW_API_KEY
+    model_info:
+      input_cost_per_token: 0.0000006
+      output_cost_per_token: 0.000001
+  - model_name: sf-bge-m3
+    litellm_params:
+      model: openai/BAAI/bge-m3
+      api_base: os.environ/SILICONFLOW_API_BASE
+      api_key: os.environ/SILICONFLOW_API_KEY
+      encoding_format: float
+    model_info:
+      mode: embedding
+      base_model: BAAI/bge-m3
+  - model_name: BAAI/bge-m3
+    litellm_params:
+      model: openai/BAAI/bge-m3
+      api_base: os.environ/SILICONFLOW_API_BASE
+      api_key: os.environ/SILICONFLOW_API_KEY
+      encoding_format: float
+    model_info:
+      mode: embedding
+      base_model: BAAI/bge-m3
+  - model_name: sf-qwen3-embedding-8b
+    litellm_params:
+      model: openai/Qwen/Qwen3-Embedding-8B
+      api_base: os.environ/SILICONFLOW_API_BASE
+      api_key: os.environ/SILICONFLOW_API_KEY
+      encoding_format: float
+    model_info:
+      mode: embedding
+      base_model: Qwen/Qwen3-Embedding-8B
+  - model_name: Qwen/Qwen3-Embedding-8B
+    litellm_params:
+      model: openai/Qwen/Qwen3-Embedding-8B
+      api_base: os.environ/SILICONFLOW_API_BASE
+      api_key: os.environ/SILICONFLOW_API_KEY
+      encoding_format: float
+    model_info:
+      mode: embedding
+      base_model: Qwen/Qwen3-Embedding-8B
+
+general_settings:
+  pass_through_endpoints:
+    - path: "/siliconflow/v1/rerank"
+      target: "https://api.siliconflow.cn/v1/rerank"
+      headers:
+        Authorization: "Bearer os.environ/SILICONFLOW_API_KEY"
+        content-type: application/json
+        accept: application/json
+      forward_headers: false
+  use_x_forwarded_for: true
+  forward_openai_org_id: true
+  store_model_in_db: true
+  store_prompts_in_spend_logs: true
