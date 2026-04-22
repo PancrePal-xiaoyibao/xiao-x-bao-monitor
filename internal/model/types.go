@@ -12,6 +12,7 @@ type DailyActivityQuery struct {
 	APIKey    string `json:"api_key,omitempty"`
 	Model     string `json:"model,omitempty"`
 	Timezone  *int   `json:"timezone,omitempty"`
+	Period    string `json:"period,omitempty"`
 }
 
 type SpendLogsQuery struct {
@@ -146,6 +147,8 @@ type NamedKeyMetric struct {
 
 type UsageDay struct {
 	Date      string           `json:"date"`
+	StartDate string           `json:"start_date,omitempty"`
+	EndDate   string           `json:"end_date,omitempty"`
 	Metrics   SpendMetrics     `json:"metrics"`
 	Models    []NamedMetric    `json:"models,omitempty"`
 	Providers []NamedMetric    `json:"providers,omitempty"`
@@ -154,6 +157,7 @@ type UsageDay struct {
 
 type UsageOverview struct {
 	Filters   DailyActivityQuery `json:"filters"`
+	Period    string             `json:"period"`
 	Summary   SpendMetrics       `json:"summary"`
 	Days      []UsageDay         `json:"days"`
 	Models    []NamedMetric      `json:"models,omitempty"`

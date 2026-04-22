@@ -3,6 +3,7 @@
 基于 LiteLLM 后端接口实现的 Go 监控服务，聚焦三件事：
 
 - 每日 API 用量总览
+- 支持按日、周、月、年粒度聚合展示
 - 模型调用与 provider 分布
 - 通过本地 LiteLLM `config.yaml` 给模型补 provider 信息
 - 阈值超限后的邮件告警
@@ -34,8 +35,17 @@ LiteLLM 接口来源：`https://api.xiao-x-bao.com.cn/openapi.json`
 ## 功能
 
 - `GET /api/v1/usage/daily`
-  返回本地 SQLite 中缓存的日级统计结果，包含总览、按模型聚合、按 provider 聚合、按 API key 聚合。
+  返回本地 SQLite 中缓存的统计结果，包含总览、按模型聚合、按 provider 聚合、按 API key 聚合。
   模型项会额外带 `provider` 字段。
+  支持 `period` 参数控制聚合粒度：`day`（默认）、`week`、`month`、`year`。
+  不同粒度下，`days` 数组中每个条目的 `date` 字段含义不同：
+  - `day` → `2026-04-22`
+  - `week` → `2026-W17`（ISO 周）
+  - `month` → `2026-04`
+  - `year` → `2026`
+
+  非 `day` 粒度的条目还会带 `start_date` / `end_date` 标示该周期的起止日期。
+  省略 `start_date` / `end_date` 时，默认范围根据 `period` 自动推算（当天 / 当周 / 当月 / 当年）。
 - `GET /api/v1/usage/logs`
   当前在本地缓存模式下固定返回 `501 Not Implemented`。
 - `GET /api/v1/models`
@@ -151,6 +161,24 @@ go run ./cmd/monitor
 
 ```bash
 curl "http://localhost:8080/api/v1/usage/daily?start_date=2026-04-22&end_date=2026-04-22"
+```
+
+按周聚合（默认当前周）：
+
+```bash
+curl "http://localhost:8080/api/v1/usage/daily?period=week"
+```
+
+按月聚合（指定范围，返回多个月的分组）：
+
+```bash
+curl "http://localhost:8080/api/v1/usage/daily?period=month&start_date=2026-01-01&end_date=2026-04-22"
+```
+
+按年聚合（默认当年）：
+
+```bash
+curl "http://localhost:8080/api/v1/usage/daily?period=year"
 ```
 
 创建阈值：

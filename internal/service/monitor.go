@@ -69,6 +69,7 @@ func NewMonitorService(client LiteLLMClient, store MonitorStore, mailer alert.Ma
 }
 
 func (s *MonitorService) GetUsageOverview(ctx context.Context, query model.DailyActivityQuery) (model.UsageOverview, error) {
+	query = s.withDefaultPeriod(query)
 	query = s.withDefaultDateRange(query)
 	query = s.withDefaultTimezone(query)
 	if strings.TrimSpace(query.UserID) != "" {
@@ -82,12 +83,14 @@ func (s *MonitorService) GetUsageOverview(ctx context.Context, query model.Daily
 
 	overview := model.UsageOverview{
 		Filters: query,
+		Period:  query.Period,
 	}
 
 	modelTotals := make(map[string]model.NamedMetric)
 	providerTotals := make(map[string]model.NamedMetric)
 	apiKeyTotals := make(map[string]model.NamedKeyMetric)
 
+	var usageDays []model.UsageDay
 	for _, cachedDay := range cachedDays {
 		usageDay, ok, err := s.buildUsageDay(query, cachedDay.Data)
 		if err != nil {
@@ -97,10 +100,16 @@ func (s *MonitorService) GetUsageOverview(ctx context.Context, query model.Daily
 			continue
 		}
 		overview.Summary.Add(usageDay.Metrics)
-		overview.Days = append(overview.Days, usageDay)
+		usageDays = append(usageDays, usageDay)
 		mergeNamedMetricTotals(modelTotals, usageDay.Models)
 		mergeNamedMetricTotals(providerTotals, usageDay.Providers)
 		mergeNamedKeyMetricTotals(apiKeyTotals, usageDay.APIKeys)
+	}
+
+	if query.Period == "day" {
+		overview.Days = usageDays
+	} else {
+		overview.Days = groupUsageDaysByPeriod(usageDays, query.Period)
 	}
 
 	overview.Models = sortNamedMetricsMap(modelTotals)
@@ -435,17 +444,65 @@ func syntheticProviderMetric(name string, metrics model.SpendMetrics) model.Name
 	}
 }
 
+func (s *MonitorService) withDefaultPeriod(query model.DailyActivityQuery) model.DailyActivityQuery {
+	switch query.Period {
+	case "day", "week", "month", "year":
+	default:
+		query.Period = "day"
+	}
+	return query
+}
+
 func (s *MonitorService) withDefaultDateRange(query model.DailyActivityQuery) model.DailyActivityQuery {
 	if strings.TrimSpace(query.StartDate) != "" && strings.TrimSpace(query.EndDate) != "" {
 		return query
 	}
 
-	today := time.Now().In(s.location).Format("2006-01-02")
-	if strings.TrimSpace(query.StartDate) == "" {
-		query.StartDate = today
-	}
-	if strings.TrimSpace(query.EndDate) == "" {
-		query.EndDate = query.StartDate
+	now := time.Now().In(s.location)
+
+	switch query.Period {
+	case "week":
+		if strings.TrimSpace(query.StartDate) == "" {
+			offset := int(now.Weekday()) - 1
+			if offset < 0 {
+				offset = 6
+			}
+			monday := now.AddDate(0, 0, -offset)
+			query.StartDate = monday.Format("2006-01-02")
+		}
+		if strings.TrimSpace(query.EndDate) == "" {
+			start, _ := time.ParseInLocation("2006-01-02", query.StartDate, s.location)
+			offset := int(start.Weekday()) - 1
+			if offset < 0 {
+				offset = 6
+			}
+			monday := start.AddDate(0, 0, -offset)
+			query.EndDate = monday.AddDate(0, 0, 6).Format("2006-01-02")
+		}
+	case "month":
+		if strings.TrimSpace(query.StartDate) == "" {
+			query.StartDate = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, s.location).Format("2006-01-02")
+		}
+		if strings.TrimSpace(query.EndDate) == "" {
+			start, _ := time.ParseInLocation("2006-01-02", query.StartDate, s.location)
+			query.EndDate = time.Date(start.Year(), start.Month()+1, 0, 0, 0, 0, 0, s.location).Format("2006-01-02")
+		}
+	case "year":
+		if strings.TrimSpace(query.StartDate) == "" {
+			query.StartDate = fmt.Sprintf("%d-01-01", now.Year())
+		}
+		if strings.TrimSpace(query.EndDate) == "" {
+			start, _ := time.ParseInLocation("2006-01-02", query.StartDate, s.location)
+			query.EndDate = fmt.Sprintf("%d-12-31", start.Year())
+		}
+	default:
+		today := now.Format("2006-01-02")
+		if strings.TrimSpace(query.StartDate) == "" {
+			query.StartDate = today
+		}
+		if strings.TrimSpace(query.EndDate) == "" {
+			query.EndDate = query.StartDate
+		}
 	}
 	return query
 }
@@ -751,4 +808,88 @@ func buildAlertMessage(threshold model.Threshold, alertDate string, value float6
 		summary.CompletionTokens,
 	)
 	return subject, body
+}
+
+func groupUsageDaysByPeriod(days []model.UsageDay, period string) []model.UsageDay {
+	type periodGroup struct {
+		key       string
+		startDate string
+		endDate   string
+		metrics   model.SpendMetrics
+		models    map[string]model.NamedMetric
+		providers map[string]model.NamedMetric
+		apiKeys   map[string]model.NamedKeyMetric
+	}
+
+	groups := make(map[string]*periodGroup)
+	var order []string
+
+	for _, day := range days {
+		key, start, end := periodKeyForDate(day.Date, period)
+		group, exists := groups[key]
+		if !exists {
+			group = &periodGroup{
+				key:       key,
+				startDate: start,
+				endDate:   end,
+				models:    make(map[string]model.NamedMetric),
+				providers: make(map[string]model.NamedMetric),
+				apiKeys:   make(map[string]model.NamedKeyMetric),
+			}
+			groups[key] = group
+			order = append(order, key)
+		}
+		group.metrics.Add(day.Metrics)
+		mergeNamedMetricTotals(group.models, day.Models)
+		mergeNamedMetricTotals(group.providers, day.Providers)
+		mergeNamedKeyMetricTotals(group.apiKeys, day.APIKeys)
+	}
+
+	result := make([]model.UsageDay, 0, len(order))
+	for _, key := range order {
+		group := groups[key]
+		result = append(result, model.UsageDay{
+			Date:      group.key,
+			StartDate: group.startDate,
+			EndDate:   group.endDate,
+			Metrics:   group.metrics,
+			Models:    sortNamedMetricsMap(group.models),
+			Providers: sortNamedMetricsMap(group.providers),
+			APIKeys:   sortNamedKeyMetricsMap(group.apiKeys),
+		})
+	}
+	return result
+}
+
+func periodKeyForDate(dateStr string, period string) (key, startDate, endDate string) {
+	t, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		return dateStr, dateStr, dateStr
+	}
+
+	switch period {
+	case "week":
+		year, week := t.ISOWeek()
+		key = fmt.Sprintf("%d-W%02d", year, week)
+		offset := int(t.Weekday()) - 1
+		if offset < 0 {
+			offset = 6
+		}
+		monday := t.AddDate(0, 0, -offset)
+		startDate = monday.Format("2006-01-02")
+		endDate = monday.AddDate(0, 0, 6).Format("2006-01-02")
+	case "month":
+		key = t.Format("2006-01")
+		startDate = time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location()).Format("2006-01-02")
+		endDate = time.Date(t.Year(), t.Month()+1, 0, 0, 0, 0, 0, t.Location()).Format("2006-01-02")
+	case "year":
+		key = t.Format("2006")
+		startDate = fmt.Sprintf("%d-01-01", t.Year())
+		endDate = fmt.Sprintf("%d-12-31", t.Year())
+	default:
+		key = dateStr
+		startDate = dateStr
+		endDate = dateStr
+	}
+	return
 }

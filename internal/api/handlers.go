@@ -53,6 +53,7 @@ func (h *Handler) getDailyUsage(w http.ResponseWriter, r *http.Request) {
 		UserID:    strings.TrimSpace(r.URL.Query().Get("user_id")),
 		APIKey:    strings.TrimSpace(r.URL.Query().Get("api_key")),
 		Model:     strings.TrimSpace(r.URL.Query().Get("model")),
+		Period:    strings.TrimSpace(r.URL.Query().Get("period")),
 	}
 	if timezoneText := strings.TrimSpace(r.URL.Query().Get("timezone")); timezoneText != "" {
 		timezone, err := strconv.Atoi(timezoneText)
