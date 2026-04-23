@@ -29,6 +29,7 @@ func NewHandler(service *service.MonitorService, logger *log.Logger, location *t
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", handler.healthz)
+	mux.HandleFunc("GET /api/v1/monitor/snapshot", handler.getMonitorSnapshot)
 	mux.HandleFunc("GET /api/v1/usage/daily", handler.getDailyUsage)
 	mux.HandleFunc("GET /api/v1/usage/logs", handler.getSpendLogs)
 	mux.HandleFunc("GET /api/v1/models", handler.getModels)
@@ -39,11 +40,20 @@ func NewHandler(service *service.MonitorService, logger *log.Logger, location *t
 	mux.HandleFunc("DELETE /api/v1/thresholds/{id}", handler.deleteThreshold)
 	mux.HandleFunc("POST /api/v1/alerts/check", handler.checkAlerts)
 	mux.HandleFunc("GET /api/v1/alerts/history", handler.listAlertHistory)
-	return recoverMiddleware(loggingMiddleware(logger, mux))
+	return recoverMiddleware(withCORS(loggingMiddleware(logger, mux)))
 }
 
 func (h *Handler) healthz(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (h *Handler) getMonitorSnapshot(w http.ResponseWriter, r *http.Request) {
+	response, err := h.service.GetMonitorSnapshot(r.Context())
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, response)
 }
 
 func (h *Handler) getDailyUsage(w http.ResponseWriter, r *http.Request) {
@@ -291,9 +301,25 @@ func recoverMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if recovered := recover(); recovered != nil {
+				log.Printf("panic while handling %s %s: %v", r.Method, r.URL.Path, recovered)
 				writeError(w, http.StatusInternalServerError, "internal server error")
 			}
 		}()
+		next.ServeHTTP(w, r)
+	})
+}
+
+func withCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
 		next.ServeHTTP(w, r)
 	})
 }

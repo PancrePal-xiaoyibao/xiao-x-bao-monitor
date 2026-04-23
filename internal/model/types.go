@@ -165,6 +165,16 @@ type UsageOverview struct {
 	APIKeys   []NamedKeyMetric   `json:"api_keys,omitempty"`
 }
 
+type MonitorSnapshot struct {
+	TokenUsage   int64   `json:"tokenUsage"`
+	RequestCount int64   `json:"requestCount"`
+	RMBCost      float64 `json:"rmbCost"`
+	ActiveModel  string  `json:"activeModel"`
+	Provider     string  `json:"provider"`
+	ReadmeSource string  `json:"readmeSource"`
+	UpdatedAt    string  `json:"updatedAt"`
+}
+
 type CachedDailySpendData struct {
 	Date     string         `json:"date"`
 	Data     DailySpendData `json:"data"`
