@@ -24,9 +24,9 @@
 - 默认后端接口：
   `/api/v1/monitor/snapshot`
 - 本地快照文件：
-  [public/monitor-fallback.json](/Users/elina/Documents/New project/xiao-x-bao-monitor/frontend/public/monitor-fallback.json)
+  `public/monitor-fallback.json`
 - 前端轮询逻辑：
-  [src/hooks/use-monitor-snapshot.ts](/Users/elina/Documents/New project/xiao-x-bao-monitor/frontend/src/hooks/use-monitor-snapshot.ts)
+  `src/hooks/use-monitor-snapshot.ts`
 - 轮询间隔：
   `15 秒`
 - 首屏状态反馈：
@@ -93,12 +93,12 @@ npm run build
 ## 关键文件
 
 - 页面主结构：
-  [src/components/landing-page.tsx](/Users/elina/Documents/New project/xiao-x-bao-monitor/frontend/src/components/landing-page.tsx)
+  `src/components/landing-page.tsx`
 - 页面文案源：
-  [src/data/site.ts](/Users/elina/Documents/New project/xiao-x-bao-monitor/frontend/src/data/site.ts)
+  `src/data/site.ts`
 - 监控接口适配：
-  [src/hooks/use-monitor-snapshot.ts](/Users/elina/Documents/New project/xiao-x-bao-monitor/frontend/src/hooks/use-monitor-snapshot.ts)
+  `src/hooks/use-monitor-snapshot.ts`
 - 全局样式：
-  [src/index.css](/Users/elina/Documents/New project/xiao-x-bao-monitor/frontend/src/index.css)
+  `src/index.css`
 - Vite 配置：
-  [vite.config.ts](/Users/elina/Documents/New project/xiao-x-bao-monitor/frontend/vite.config.ts)
+  `vite.config.ts`
