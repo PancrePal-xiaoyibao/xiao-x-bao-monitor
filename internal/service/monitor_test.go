@@ -245,6 +245,96 @@ func TestGetUsageOverviewAggregatesByModelProviderAndKey(t *testing.T) {
 	}
 }
 
+func TestGetMonitorSnapshotBuildsFrontendFriendlyPayload(t *testing.T) {
+	now := time.Now().UTC()
+	syncedAt := now
+	usageDate := now.In(time.FixedZone("UTC+8", 8*3600)).Format("2006-01-02")
+	store := &fakeStore{
+		cachedDays: []model.CachedDailySpendData{
+			{
+				Date: usageDate,
+				Data: model.DailySpendData{
+					Date: usageDate,
+					Metrics: model.SpendMetrics{
+						Spend:       16.5,
+						APIRequests: 12,
+						TotalTokens: 2500,
+					},
+					Breakdown: model.BreakdownMetrics{
+						Models: map[string]model.MetricWithMetadata{
+							"gpt-4o":            {Metrics: model.SpendMetrics{Spend: 14, APIRequests: 9}},
+							"claude-3-5-sonnet": {Metrics: model.SpendMetrics{Spend: 2.5, APIRequests: 3}},
+						},
+						Providers: map[string]model.MetricWithMetadata{
+							"openai":    {Metrics: model.SpendMetrics{Spend: 14, APIRequests: 9}},
+							"anthropic": {Metrics: model.SpendMetrics{Spend: 2.5, APIRequests: 3}},
+						},
+					},
+				},
+				SyncedAt: syncedAt,
+			},
+		},
+	}
+	service := NewMonitorService(
+		&fakeLiteLLMClient{},
+		store,
+		&fakeMailer{},
+		time.FixedZone("UTC+8", 8*3600),
+		newTestProviderResolver(t),
+		30,
+	)
+
+	snapshot, err := service.GetMonitorSnapshot(context.Background())
+	if err != nil {
+		t.Fatalf("GetMonitorSnapshot returned error: %v", err)
+	}
+
+	if snapshot.TokenUsage != 2500 {
+		t.Fatalf("expected token usage 2500, got %d", snapshot.TokenUsage)
+	}
+	if snapshot.RequestCount != 12 {
+		t.Fatalf("expected request count 12, got %d", snapshot.RequestCount)
+	}
+	if snapshot.RMBCost != 16.5 {
+		t.Fatalf("expected RMB cost 16.5, got %.2f", snapshot.RMBCost)
+	}
+	if snapshot.ActiveModel != "gpt-4o" {
+		t.Fatalf("expected active model gpt-4o, got %s", snapshot.ActiveModel)
+	}
+	if snapshot.Provider != "openai" {
+		t.Fatalf("expected provider openai, got %s", snapshot.Provider)
+	}
+	if snapshot.ReadmeSource != "LiteLLM Monitor API" {
+		t.Fatalf("unexpected readme source: %s", snapshot.ReadmeSource)
+	}
+	if snapshot.UpdatedAt != syncedAt.Format(time.RFC3339) {
+		t.Fatalf("unexpected updatedAt: %s", snapshot.UpdatedAt)
+	}
+}
+
+func TestGetMonitorSnapshotHandlesEmptyCacheWithoutError(t *testing.T) {
+	service := NewMonitorService(
+		&fakeLiteLLMClient{},
+		&fakeStore{},
+		&fakeMailer{},
+		time.FixedZone("UTC+8", 8*3600),
+		newTestProviderResolver(t),
+		30,
+	)
+
+	snapshot, err := service.GetMonitorSnapshot(context.Background())
+	if err != nil {
+		t.Fatalf("GetMonitorSnapshot returned error: %v", err)
+	}
+
+	if snapshot.TokenUsage != 0 || snapshot.RequestCount != 0 || snapshot.RMBCost != 0 {
+		t.Fatalf("expected zero-value snapshot, got %#v", snapshot)
+	}
+	if snapshot.ReadmeSource != "LiteLLM Monitor API" {
+		t.Fatalf("unexpected readme source: %s", snapshot.ReadmeSource)
+	}
+}
+
 func TestCheckThresholdsSendsEmailOncePerDay(t *testing.T) {
 	store := &fakeStore{
 		thresholds: []model.Threshold{

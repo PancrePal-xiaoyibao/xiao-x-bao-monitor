@@ -3,4 +3,12 @@ data/
 *.db
 *.sqlite
 .env
-
+.local-bin/
+.tmp-tests/
+.vite/
+dist/
+node_modules/
+frontend/dist/
+frontend/node_modules/
+frontend/.tmp-tests/
+frontend/.local-bin/

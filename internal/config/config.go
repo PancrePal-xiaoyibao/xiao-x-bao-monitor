@@ -60,6 +60,10 @@ type SyncConfig struct {
 }
 
 func Load() (Config, error) {
+	if err := loadDotEnv(".env"); err != nil {
+		return Config{}, err
+	}
+
 	cfg := Config{
 		HTTP: HTTPConfig{
 			Addr: envString("HTTP_ADDR", ":8080"),
@@ -98,6 +102,42 @@ func Load() (Config, error) {
 	}
 	cfg.Location = loc
 	return cfg, nil
+}
+
+func loadDotEnv(path string) error {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("read %s: %w", path, err)
+	}
+
+	lines := strings.Split(string(raw), "\n")
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+
+		key, value, ok := strings.Cut(trimmed, "=")
+		if !ok {
+			continue
+		}
+
+		key = strings.TrimSpace(key)
+		if key == "" || os.Getenv(key) != "" {
+			continue
+		}
+
+		value = strings.TrimSpace(value)
+		value = strings.Trim(value, `"'`)
+		if err := os.Setenv(key, value); err != nil {
+			return fmt.Errorf("set env %s: %w", key, err)
+		}
+	}
+
+	return nil
 }
 
 func envString(key, fallback string) string {

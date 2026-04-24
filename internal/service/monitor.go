@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"slices"
@@ -53,6 +54,8 @@ var (
 	ErrSpendLogsNotSupported = errors.New("spend logs are not supported in local cache mode")
 	ErrUserFilterUnsupported = errors.New("user_id filter is not supported in local cache mode")
 )
+
+const monitorSnapshotReadmeSource = "LiteLLM Monitor API"
 
 func NewMonitorService(client LiteLLMClient, store MonitorStore, mailer alert.Mailer, location *time.Location, providerResolver ModelProviderResolver, syncLookbackDays int) *MonitorService {
 	if syncLookbackDays <= 0 {
@@ -116,6 +119,47 @@ func (s *MonitorService) GetUsageOverview(ctx context.Context, query model.Daily
 	overview.Providers = sortNamedMetricsMap(providerTotals)
 	overview.APIKeys = sortNamedKeyMetricsMap(apiKeyTotals)
 	return overview, nil
+}
+
+func (s *MonitorService) GetMonitorSnapshot(ctx context.Context) (model.MonitorSnapshot, error) {
+	query := s.withDefaultPeriod(model.DailyActivityQuery{})
+	query = s.withDefaultDateRange(query)
+
+	cachedDays, err := s.store.ListCachedDailySpendData(ctx, query.StartDate, query.EndDate)
+	if err != nil {
+		return model.MonitorSnapshot{}, err
+	}
+
+	modelTotals := make(map[string]model.NamedMetric)
+	providerTotals := make(map[string]model.NamedMetric)
+	var summary model.SpendMetrics
+
+	for _, cachedDay := range cachedDays {
+		summary.Add(cachedDay.Data.Metrics)
+		mergeNamedMetricTotals(modelTotals, s.normalizeMetricMap(cachedDay.Data.Breakdown.Models, true))
+		mergeNamedMetricTotals(providerTotals, normalizeMetricMap(cachedDay.Data.Breakdown.Providers))
+	}
+
+	models := sortNamedMetricsMap(modelTotals)
+	providers := sortNamedMetricsMap(providerTotals)
+
+	snapshot := model.MonitorSnapshot{
+		TokenUsage:   summary.TotalTokens,
+		RequestCount: summary.APIRequests,
+		RMBCost:      summary.Spend,
+		ReadmeSource: monitorSnapshotReadmeSource,
+		UpdatedAt:    s.resolveSnapshotUpdatedAt(ctx, cachedDays),
+	}
+
+	if len(models) > 0 {
+		snapshot.ActiveModel = models[0].Name
+		snapshot.Provider = models[0].Provider
+	}
+	if snapshot.Provider == "" && len(providers) > 0 {
+		snapshot.Provider = providers[0].Name
+	}
+
+	return snapshot, nil
 }
 
 func (s *MonitorService) GetSpendLogs(ctx context.Context, query model.SpendLogsQuery) (map[string]any, error) {
@@ -198,6 +242,38 @@ func (s *MonitorService) SyncCache(ctx context.Context, now time.Time) (model.Sy
 
 func (s *MonitorService) ListThresholds(ctx context.Context) ([]model.Threshold, error) {
 	return s.store.ListThresholds(ctx)
+}
+
+func (s *MonitorService) resolveSnapshotUpdatedAt(ctx context.Context, cachedDays []model.CachedDailySpendData) string {
+	var latest time.Time
+
+	for _, cachedDay := range cachedDays {
+		if cachedDay.SyncedAt.After(latest) {
+			latest = cachedDay.SyncedAt
+		}
+	}
+
+	if providers, err := s.store.GetProviders(ctx); err == nil {
+		if providers.SyncedAt.After(latest) {
+			latest = providers.SyncedAt
+		}
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		// Ignore non-fatal cache lookup errors for snapshot timestamps.
+	}
+
+	if catalog, err := s.store.GetModelCatalog(ctx); err == nil {
+		if catalog.SyncedAt.After(latest) {
+			latest = catalog.SyncedAt
+		}
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		// Ignore non-fatal cache lookup errors for snapshot timestamps.
+	}
+
+	if latest.IsZero() {
+		return ""
+	}
+
+	return latest.UTC().Format(time.RFC3339)
 }
 
 func (s *MonitorService) CreateThreshold(ctx context.Context, threshold model.Threshold) (model.Threshold, error) {
@@ -626,12 +702,22 @@ func (s *MonitorService) normalizeMetricMap(values map[string]model.MetricWithMe
 			Metadata: value.Metadata,
 		}
 		if includeProvider && s.providerResolver != nil {
-			item.Provider = s.providerResolver.Resolve(name, value.Metadata)
+			item.Provider = s.safeResolveProvider(name, value.Metadata)
 		}
 		items = append(items, item)
 	}
 	slices.SortFunc(items, compareNamedMetrics)
 	return items
+}
+
+func (s *MonitorService) safeResolveProvider(modelName string, metadata map[string]any) (provider string) {
+	defer func() {
+		if recover() != nil {
+			provider = ""
+		}
+	}()
+
+	return s.providerResolver.Resolve(modelName, metadata)
 }
 
 func normalizeKeyMetricMap(values map[string]model.KeyMetricWithMetadata) []model.NamedKeyMetric {

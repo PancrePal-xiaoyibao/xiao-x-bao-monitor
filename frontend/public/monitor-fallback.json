@@ -1,0 +1,9 @@
+{
+  "tokenUsage": 1280000,
+  "requestCount": 4892,
+  "rmbCost": 1736,
+  "activeModel": "gpt-4.1",
+  "provider": "OpenAI",
+  "readmeSource": "README 已同步",
+  "updatedAt": "2026-04-22T13:00:00.000Z"
+}

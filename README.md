@@ -11,6 +11,11 @@
 
 LiteLLM 接口来源：`https://api.xiao-x-bao.com.cn/openapi.json`
 
+这个仓库现在同时包含：
+
+- Go 后端 API（仓库根目录）
+- React 前端单页（`frontend/`）
+
 ## 设计思路
 
 这版实现直接复用 LiteLLM 已有的分析接口，但不会在请求路径里直连 LiteLLM：
@@ -34,6 +39,10 @@ LiteLLM 接口来源：`https://api.xiao-x-bao.com.cn/openapi.json`
 
 ## 功能
 
+- `GET /api/v1/monitor/snapshot`
+  返回给前端首页直接消费的扁平快照结构，字段包括：
+  `tokenUsage`、`requestCount`、`rmbCost`、`activeModel`、`provider`、`readmeSource`、`updatedAt`。
+  这个接口会基于本地 SQLite 缓存自动组装摘要结果，避免前端直接耦合 `/api/v1/usage/daily` 的聚合结构。
 - `GET /api/v1/usage/daily`
   返回本地 SQLite 中缓存的统计结果，包含总览、按模型聚合、按 provider 聚合、按 API key 聚合。
   模型项会额外带 `provider` 字段。
@@ -155,12 +164,39 @@ go run ./cmd/monitor
 
 启动后会先做一次 LiteLLM -> SQLite 的初始化同步。
 
+## 前端联调
+
+前端项目位于 `frontend/`，默认会请求：
+
+```bash
+/api/v1/monitor/snapshot
+```
+
+本地联调步骤：
+
+```bash
+go run ./cmd/monitor
+cd frontend
+npm install
+npm run dev
+```
+
+前端开发服务默认监听：`http://127.0.0.1:4173`
+
+Vite 已经内置 `/api` 到 `http://127.0.0.1:8080` 的代理，所以前端和后端在本地可以直接联通。
+
 ## 示例
 
 获取最近一天聚合：
 
 ```bash
 curl "http://localhost:8080/api/v1/usage/daily?start_date=2026-04-22&end_date=2026-04-22"
+```
+
+获取前端首页快照：
+
+```bash
+curl "http://localhost:8080/api/v1/monitor/snapshot"
 ```
 
 按周聚合（默认当前周）：
