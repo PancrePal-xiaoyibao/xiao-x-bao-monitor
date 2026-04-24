@@ -1,5 +1,6 @@
 import type { MonitorApiSnapshot } from "../data/site.js";
 
+export const DEFAULT_MONITOR_URL = "/api/v1/monitor/snapshot";
 export const LOCAL_SNAPSHOT_URL = "/monitor-fallback.json";
 
 export const DEFAULT_SNAPSHOT: MonitorApiSnapshot = {
@@ -14,7 +15,7 @@ export const DEFAULT_SNAPSHOT: MonitorApiSnapshot = {
 
 export function getMonitorUrl() {
   const custom = import.meta.env.VITE_MONITOR_API_URL;
-  return custom && custom.trim().length > 0 ? custom : LOCAL_SNAPSHOT_URL;
+  return custom && custom.trim().length > 0 ? custom : DEFAULT_MONITOR_URL;
 }
 
 export interface ResolvedSnapshotResult {
