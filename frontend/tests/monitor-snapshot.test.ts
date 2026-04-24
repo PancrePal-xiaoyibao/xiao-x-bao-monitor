@@ -108,7 +108,7 @@ test("resolveSnapshotWithFallback falls back to local snapshot when target fails
   assert.deepEqual(result, {
     snapshot: fallbackSnapshot,
     isLive: false,
-    errorMessage: "真实接口请求失败，当前已回退到本地快照。",
+    errorMessage: "真实接口请求失败，当前已回退到本地快照，内容时间显示的是快照时间。",
     activeSourceUrl: LOCAL_SNAPSHOT_URL,
   });
 });

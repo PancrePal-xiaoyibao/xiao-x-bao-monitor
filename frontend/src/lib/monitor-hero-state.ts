@@ -16,6 +16,7 @@ export interface HeroStatusState {
   statusText: string;
   statusTone: "neutral" | "warning";
   emptyStateText: string | null;
+  snapshotUpdatedTitle: string;
   snapshotUpdatedLabel: string;
   lastSuccessLabel: string;
 }
@@ -34,7 +35,9 @@ export function getHeroStatusState(input: HeroStatusStateInput): HeroStatusState
         ? input.liveText
         : input.fallbackText,
     freshnessText: isStale ? "可能偏旧" : "最新可见",
-    statusText: input.errorMessage ?? (input.isLive ? "实时数据更新中" : "当前显示快照数据"),
+    statusText:
+      input.errorMessage ??
+      (input.isLive ? "实时数据更新中" : "当前显示本地快照，内容时间显示的是快照时间"),
     statusTone: input.errorMessage ? "warning" : "neutral",
     emptyStateText: input.hasUsableData
       ? null
@@ -42,6 +45,7 @@ export function getHeroStatusState(input: HeroStatusStateInput): HeroStatusState
           isLoading: input.isLoading,
           errorMessage: input.errorMessage,
         }),
+    snapshotUpdatedTitle: input.isLive ? "内容同步时间" : "快照内容时间",
     snapshotUpdatedLabel,
     lastSuccessLabel,
   };

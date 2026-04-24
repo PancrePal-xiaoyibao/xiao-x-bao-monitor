@@ -48,6 +48,7 @@ type MonitorService struct {
 	location         *time.Location
 	providerResolver ModelProviderResolver
 	syncLookbackDays int
+	snapshotMaxAge   time.Duration
 }
 
 var (
@@ -57,9 +58,12 @@ var (
 
 const monitorSnapshotReadmeSource = "LiteLLM Monitor API"
 
-func NewMonitorService(client LiteLLMClient, store MonitorStore, mailer alert.Mailer, location *time.Location, providerResolver ModelProviderResolver, syncLookbackDays int) *MonitorService {
+func NewMonitorService(client LiteLLMClient, store MonitorStore, mailer alert.Mailer, location *time.Location, providerResolver ModelProviderResolver, syncLookbackDays int, snapshotMaxAge time.Duration) *MonitorService {
 	if syncLookbackDays <= 0 {
 		syncLookbackDays = 30
+	}
+	if snapshotMaxAge <= 0 {
+		snapshotMaxAge = 10 * time.Minute
 	}
 	return &MonitorService{
 		client:           client,
@@ -68,6 +72,7 @@ func NewMonitorService(client LiteLLMClient, store MonitorStore, mailer alert.Ma
 		location:         location,
 		providerResolver: providerResolver,
 		syncLookbackDays: syncLookbackDays,
+		snapshotMaxAge:   snapshotMaxAge,
 	}
 }
 
@@ -129,6 +134,17 @@ func (s *MonitorService) GetMonitorSnapshot(ctx context.Context) (model.MonitorS
 	if err != nil {
 		return model.MonitorSnapshot{}, err
 	}
+	latestSync := s.resolveLatestSyncAt(ctx, cachedDays)
+
+	if s.shouldRefreshSnapshot(latestSync, time.Now().In(s.location)) {
+		if _, err := s.SyncCache(ctx, time.Now().In(s.location)); err == nil {
+			cachedDays, err = s.store.ListCachedDailySpendData(ctx, query.StartDate, query.EndDate)
+			if err != nil {
+				return model.MonitorSnapshot{}, err
+			}
+			latestSync = s.resolveLatestSyncAt(ctx, cachedDays)
+		}
+	}
 
 	modelTotals := make(map[string]model.NamedMetric)
 	providerTotals := make(map[string]model.NamedMetric)
@@ -148,7 +164,7 @@ func (s *MonitorService) GetMonitorSnapshot(ctx context.Context) (model.MonitorS
 		RequestCount: summary.APIRequests,
 		RMBCost:      summary.Spend,
 		ReadmeSource: monitorSnapshotReadmeSource,
-		UpdatedAt:    s.resolveSnapshotUpdatedAt(ctx, cachedDays),
+		UpdatedAt:    formatSnapshotUpdatedAt(latestSync),
 	}
 
 	if len(models) > 0 {
@@ -244,7 +260,7 @@ func (s *MonitorService) ListThresholds(ctx context.Context) ([]model.Threshold,
 	return s.store.ListThresholds(ctx)
 }
 
-func (s *MonitorService) resolveSnapshotUpdatedAt(ctx context.Context, cachedDays []model.CachedDailySpendData) string {
+func (s *MonitorService) resolveLatestSyncAt(ctx context.Context, cachedDays []model.CachedDailySpendData) time.Time {
 	var latest time.Time
 
 	for _, cachedDay := range cachedDays {
@@ -270,10 +286,27 @@ func (s *MonitorService) resolveSnapshotUpdatedAt(ctx context.Context, cachedDay
 	}
 
 	if latest.IsZero() {
-		return ""
+		return time.Time{}
 	}
 
+	return latest
+}
+
+func formatSnapshotUpdatedAt(latest time.Time) string {
+	if latest.IsZero() {
+		return ""
+	}
 	return latest.UTC().Format(time.RFC3339)
+}
+
+func (s *MonitorService) shouldRefreshSnapshot(latestSync time.Time, now time.Time) bool {
+	if s.snapshotMaxAge <= 0 {
+		return false
+	}
+	if latestSync.IsZero() {
+		return true
+	}
+	return now.Sub(latestSync) >= s.snapshotMaxAge
 }
 
 func (s *MonitorService) CreateThreshold(ctx context.Context, threshold model.Threshold) (model.Threshold, error) {

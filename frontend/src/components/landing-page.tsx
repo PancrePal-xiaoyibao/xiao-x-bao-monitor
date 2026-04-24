@@ -332,7 +332,7 @@ function Hero({
           <div className="mb-4 grid gap-3 lg:grid-cols-3">
             <StatusChip
               icon={Clock3}
-              label="内容更新时间"
+              label={heroStatus.snapshotUpdatedTitle}
               value={heroStatus.snapshotUpdatedLabel}
             />
             <StatusChip

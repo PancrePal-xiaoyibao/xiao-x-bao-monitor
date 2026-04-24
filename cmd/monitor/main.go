@@ -49,7 +49,7 @@ func main() {
 	client := litellm.NewClient(cfg.LiteLLM)
 	mailer := alert.NewSMTPMailer(cfg.Mail)
 	providerResolver := provider.NewResolver(cfg.Provider.Path)
-	monitorService := service.NewMonitorService(client, store, mailer, cfg.Location, providerResolver, cfg.Sync.LookbackDays)
+	monitorService := service.NewMonitorService(client, store, mailer, cfg.Location, providerResolver, cfg.Sync.LookbackDays, cfg.Scheduler.Interval)
 
 	initialSyncCtx, cancelInitialSync := context.WithTimeout(ctx, 60*time.Second)
 	initialReport, err := monitorService.SyncCache(initialSyncCtx, time.Now().In(cfg.Location))

@@ -21,16 +21,17 @@ test("getHeroStatusState returns loading and empty-state copy during first load"
 
   assert.equal(state.liveBadgeText, "加载中");
   assert.equal(state.freshnessText, "可能偏旧");
-  assert.equal(state.statusText, "当前显示快照数据");
+  assert.equal(state.statusText, "当前显示本地快照，内容时间显示的是快照时间");
   assert.equal(state.statusTone, "neutral");
   assert.equal(state.emptyStateText, "正在拉取监控数据，首屏指标会在请求完成后显示。");
+  assert.equal(state.snapshotUpdatedTitle, "快照内容时间");
 });
 
 test("getHeroStatusState surfaces fallback error messaging", () => {
   const state = getHeroStatusState({
     isLive: false,
     isLoading: false,
-    errorMessage: "真实接口请求失败，当前已回退到本地快照。",
+    errorMessage: "真实接口请求失败，当前已回退到本地快照，内容时间显示的是快照时间。",
     hasUsableData: false,
     snapshotUpdatedAt: "",
     lastSuccessAt: "2026-04-23T09:58:30.000Z",
@@ -41,8 +42,9 @@ test("getHeroStatusState surfaces fallback error messaging", () => {
 
   assert.equal(state.liveBadgeText, "快照数据");
   assert.equal(state.freshnessText, "最新可见");
-  assert.equal(state.statusText, "真实接口请求失败，当前已回退到本地快照。");
+  assert.equal(state.statusText, "真实接口请求失败，当前已回退到本地快照，内容时间显示的是快照时间。");
   assert.equal(state.statusTone, "warning");
+  assert.equal(state.snapshotUpdatedTitle, "快照内容时间");
   assert.equal(
     state.emptyStateText,
     "当前还没有可展示的监控数据。 可以稍后刷新再看，或回到说明区了解当前数据来源。",
@@ -67,6 +69,7 @@ test("getHeroStatusState prefers live success messaging when usable data exists"
   assert.equal(state.statusText, "实时数据更新中");
   assert.equal(state.statusTone, "neutral");
   assert.equal(state.emptyStateText, null);
+  assert.equal(state.snapshotUpdatedTitle, "内容同步时间");
 });
 
 test("formatDateTime returns unavailable copy for invalid timestamps", () => {

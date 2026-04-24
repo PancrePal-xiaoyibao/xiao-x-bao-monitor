@@ -60,7 +60,7 @@ model_list:
 		APIKey:  "integration-api-key",
 		Timeout: 5 * time.Second,
 	})
-	monitorService := service.NewMonitorService(client, store, mailer, location, provider.NewResolver(providerConfigPath), 30)
+	monitorService := service.NewMonitorService(client, store, mailer, location, provider.NewResolver(providerConfigPath), 30, 10*time.Minute)
 	if _, err := monitorService.SyncCache(context.Background(), time.Date(2026, 4, 22, 12, 0, 0, 0, location)); err != nil {
 		t.Fatalf("SyncCache returned error: %v", err)
 	}

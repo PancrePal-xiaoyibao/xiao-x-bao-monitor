@@ -212,6 +212,7 @@ func TestGetUsageOverviewAggregatesByModelProviderAndKey(t *testing.T) {
 		time.FixedZone("UTC+8", 8*3600),
 		newTestProviderResolver(t),
 		30,
+		10*time.Minute,
 	)
 	if _, err := service.SyncCache(context.Background(), time.Date(2026, 4, 23, 0, 0, 0, 0, time.FixedZone("UTC+8", 8*3600))); err != nil {
 		t.Fatalf("SyncCache returned error: %v", err)
@@ -282,6 +283,7 @@ func TestGetMonitorSnapshotBuildsFrontendFriendlyPayload(t *testing.T) {
 		time.FixedZone("UTC+8", 8*3600),
 		newTestProviderResolver(t),
 		30,
+		10*time.Minute,
 	)
 
 	snapshot, err := service.GetMonitorSnapshot(context.Background())
@@ -320,6 +322,7 @@ func TestGetMonitorSnapshotHandlesEmptyCacheWithoutError(t *testing.T) {
 		time.FixedZone("UTC+8", 8*3600),
 		newTestProviderResolver(t),
 		30,
+		10*time.Minute,
 	)
 
 	snapshot, err := service.GetMonitorSnapshot(context.Background())
@@ -332,6 +335,80 @@ func TestGetMonitorSnapshotHandlesEmptyCacheWithoutError(t *testing.T) {
 	}
 	if snapshot.ReadmeSource != "LiteLLM Monitor API" {
 		t.Fatalf("unexpected readme source: %s", snapshot.ReadmeSource)
+	}
+}
+
+func TestGetMonitorSnapshotRefreshesStaleCacheOnRead(t *testing.T) {
+	location := time.FixedZone("UTC+8", 8*3600)
+	now := time.Now().In(location)
+	oldSyncedAt := now.Add(-20 * time.Minute)
+	usageDate := now.Format("2006-01-02")
+	store := &fakeStore{
+		cachedDays: []model.CachedDailySpendData{
+			{
+				Date: usageDate,
+				Data: model.DailySpendData{
+					Date: usageDate,
+					Metrics: model.SpendMetrics{
+						Spend:       1,
+						APIRequests: 1,
+						TotalTokens: 10,
+					},
+				},
+				SyncedAt: oldSyncedAt,
+			},
+		},
+		providers: model.CachedProviders{
+			Providers: []string{"openai"},
+			SyncedAt:  oldSyncedAt,
+		},
+		catalog: model.CachedModelCatalog{
+			Payload:  map[string]any{"data": []any{}},
+			SyncedAt: oldSyncedAt,
+		},
+	}
+
+	service := NewMonitorService(
+		&fakeLiteLLMClient{
+			dailyActivity: model.SpendAnalyticsResponse{
+				Results: []model.DailySpendData{
+					{
+						Date: usageDate,
+						Metrics: model.SpendMetrics{
+							Spend:       8,
+							APIRequests: 3,
+							TotalTokens: 500,
+						},
+						Breakdown: model.BreakdownMetrics{
+							Models: map[string]model.MetricWithMetadata{
+								"gpt-4o": {Metrics: model.SpendMetrics{Spend: 8, APIRequests: 3}},
+							},
+							Providers: map[string]model.MetricWithMetadata{
+								"openai": {Metrics: model.SpendMetrics{Spend: 8, APIRequests: 3}},
+							},
+						},
+					},
+				},
+			},
+		},
+		store,
+		&fakeMailer{},
+		location,
+		newTestProviderResolver(t),
+		30,
+		10*time.Minute,
+	)
+
+	snapshot, err := service.GetMonitorSnapshot(context.Background())
+	if err != nil {
+		t.Fatalf("GetMonitorSnapshot returned error: %v", err)
+	}
+
+	if snapshot.RequestCount != 3 {
+		t.Fatalf("expected refreshed request count 3, got %d", snapshot.RequestCount)
+	}
+	if snapshot.UpdatedAt == oldSyncedAt.UTC().Format(time.RFC3339) {
+		t.Fatalf("expected updatedAt to refresh beyond stale syncedAt %s", snapshot.UpdatedAt)
 	}
 }
 
@@ -371,6 +448,7 @@ func TestCheckThresholdsSendsEmailOncePerDay(t *testing.T) {
 		time.FixedZone("UTC+8", 8*3600),
 		newTestProviderResolver(t),
 		30,
+		10*time.Minute,
 	)
 	if _, err := service.SyncCache(context.Background(), time.Date(2026, 4, 22, 0, 0, 0, 0, time.FixedZone("UTC+8", 8*3600))); err != nil {
 		t.Fatalf("SyncCache returned error: %v", err)
