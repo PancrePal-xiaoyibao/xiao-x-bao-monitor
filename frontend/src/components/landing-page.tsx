@@ -1046,7 +1046,7 @@ function CtaFooter({
           {siteContent.footer.description}
         </p>
         <div className="mt-10 flex flex-wrap justify-center gap-4">
-          <a href="https://github.com/elinawang626-design/xiao-x-bao-monitor" target="_blank" rel="noreferrer">
+          <a href="https://github.com/PancrePal-xiaoyibao/xiao-x-bao-monitor" target="_blank" rel="noreferrer">
             <Button variant="glassStrong" className="px-6 py-3">
               {siteContent.footer.primaryCta}
             </Button>
