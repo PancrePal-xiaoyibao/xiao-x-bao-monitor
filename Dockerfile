@@ -1,15 +1,21 @@
 # ─── Stage 1: Build frontend ────────────────────────────────────────────────────
 FROM node:22-alpine AS frontend-build
+
+RUN npm install -g bun
+
 WORKDIR /app/frontend
 
 COPY frontend/package.json frontend/bun.lock ./
-RUN npm install --prefer-offline
+RUN bun install --frozen-lockfile
 
 COPY frontend/ ./
-RUN npm run build
+RUN bun run build
 
 # ─── Stage 2: Build backend ─────────────────────────────────────────────────────
 FROM golang:1.25-alpine AS backend-build
+
+RUN apk add --no-cache gcc musl-dev
+
 WORKDIR /app
 
 COPY go.mod go.sum ./
