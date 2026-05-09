@@ -1,0 +1,24 @@
+services:
+  monitor:
+    image: ghcr.io/pancrepal-xiaoyibao/xiao-x-bao-monitor:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - LITELLM_BASE_URL=http://127.0.0.1:4000
+      - LITELLM_API_KEY=${LITELLM_API_KEY}
+      - LITELLM_TIMEOUT=30s
+      - HTTP_ADDR=:8080
+      - APP_TIMEZONE=Asia/Shanghai
+      - FRONTEND_DIST=/app/frontend/dist
+      - DB_PATH=/app/data/monitor.db
+      - PROVIDER_CONFIG_PATH=/app/config/provider-config.yaml
+      - SCHEDULER_ENABLED=true
+      - SCHEDULER_INTERVAL=10m
+      - SYNC_LOOKBACK_DAYS=30
+    volumes:
+      - monitor-data:/app/data
+    network_mode: host
+    restart: unless-stopped
+
+volumes:
+  monitor-data:
