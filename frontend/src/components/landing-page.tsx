@@ -1,4 +1,6 @@
 import logoIcon from "@/assets/logo-icon.png";
+import sponsorSiliconflow from "@/assets/sponsor-siliconflow.png";
+import sponsorStepfun from "@/assets/sponsor-stepfun.png";
 import {
   Activity,
   ArrowUpRight,
@@ -6,7 +8,6 @@ import {
   Clock,
   Cpu,
   RefreshCw,
-  Server,
   Zap,
 } from "lucide-react";
 import { siteContent } from "@/data/site";
@@ -91,7 +92,6 @@ export function LandingPage() {
                 isLive={isLive}
                 lastSuccessAt={lastSuccessAt}
                 updatedAt={snapshot.updatedAt}
-                provider={snapshot.provider}
               />
               <MetricsDetail
                 tokenUsage={snapshot.tokenUsage}
@@ -116,6 +116,7 @@ export function LandingPage() {
         )}
       </main>
 
+      <Sponsors />
       <Footer />
     </div>
   );
@@ -272,12 +273,10 @@ function StatusPanel({
   isLive,
   lastSuccessAt,
   updatedAt,
-  provider,
 }: {
   isLive: boolean;
   lastSuccessAt: string | null;
   updatedAt: string;
-  provider: string;
 }) {
   const items = [
     {
@@ -294,11 +293,6 @@ function StatusPanel({
       label: "数据更新时间",
       value: formatDateTime(updatedAt),
       icon: RefreshCw,
-    },
-    {
-      label: "服务提供商",
-      value: provider || "未提供",
-      icon: Server,
     },
   ];
 
@@ -417,6 +411,26 @@ function TokenBar({
         ))}
       </div>
     </div>
+  );
+}
+
+function Sponsors() {
+  return (
+    <section className="border-t border-border bg-card/50">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <p className="mb-6 text-center text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          感谢赞助商支持
+        </p>
+        <div className="flex flex-wrap items-center justify-center gap-12">
+          <a href="https://siliconflow.cn" target="_blank" rel="noreferrer" className="transition hover:opacity-80">
+            <img src={sponsorSiliconflow} alt="SiliconFlow" className="h-8" />
+          </a>
+          <a href="https://www.stepfun.com" target="_blank" rel="noreferrer" className="transition hover:opacity-80">
+            <img src={sponsorStepfun} alt="StepFun 阶跃星辰" className="h-8" />
+          </a>
+        </div>
+      </div>
+    </section>
   );
 }
 
