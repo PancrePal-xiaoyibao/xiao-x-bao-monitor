@@ -5,14 +5,19 @@ import {
   CircleDot,
   Clock,
   Cpu,
-  DollarSign,
   RefreshCw,
   Server,
   Zap,
 } from "lucide-react";
 import { siteContent } from "@/data/site";
 import { useMonitorSnapshot } from "@/hooks/use-monitor-snapshot";
+import { useUsageData } from "@/hooks/use-usage-data";
 import { formatDateTime } from "@/lib/monitor-hero-state";
+import {
+  DailyTrendChart,
+  ModelDistributionChart,
+  SuccessRatePanel,
+} from "@/components/usage-charts";
 
 export function LandingPage() {
   const {
@@ -25,6 +30,7 @@ export function LandingPage() {
     hasUsableData,
     refresh,
   } = useMonitorSnapshot();
+  const { data: usageData, isLoading: usageLoading } = useUsageData(20);
 
   return (
     <div className="min-h-screen bg-background">
@@ -37,7 +43,9 @@ export function LandingPage() {
               运行概览
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {siteContent.refreshHint}
+              {snapshot.startDate && snapshot.endDate
+                ? `统计周期：${snapshot.startDate} ~ ${snapshot.endDate}`
+                : siteContent.refreshHint}
             </p>
           </div>
           <button
@@ -68,11 +76,14 @@ export function LandingPage() {
           <>
             <MetricsGrid
               tokenUsage={snapshot.tokenUsage}
+              promptTokens={snapshot.promptTokens}
+              completionTokens={snapshot.completionTokens}
               requestCount={snapshot.requestCount}
-              rmbCost={snapshot.rmbCost}
+              successCount={snapshot.successCount}
+              failedCount={snapshot.failedCount}
               activeModel={snapshot.activeModel}
-              provider={snapshot.provider}
               hasUsableData={hasUsableData}
+              modelCount={usageData?.models?.length ?? 0}
             />
 
             <div className="mt-8 grid gap-6 lg:grid-cols-3">
@@ -81,14 +92,26 @@ export function LandingPage() {
                 lastSuccessAt={lastSuccessAt}
                 updatedAt={snapshot.updatedAt}
                 provider={snapshot.provider}
-                activeModel={snapshot.activeModel}
               />
               <MetricsDetail
                 tokenUsage={snapshot.tokenUsage}
                 requestCount={snapshot.requestCount}
-                rmbCost={snapshot.rmbCost}
+                promptTokens={snapshot.promptTokens}
+                completionTokens={snapshot.completionTokens}
               />
             </div>
+
+            {!usageLoading && usageData && (
+              <div className="mt-8 space-y-6">
+                <DailyTrendChart data={usageData} />
+
+                {usageData.models && usageData.models.length > 0 && (
+                  <ModelDistributionChart models={usageData.models} />
+                )}
+
+                <SuccessRatePanel data={usageData} />
+              </div>
+            )}
           </>
         )}
       </main>
@@ -161,18 +184,24 @@ function StatusBadge({ isLive, isLoading }: { isLive: boolean; isLoading: boolea
 
 function MetricsGrid({
   tokenUsage,
+  promptTokens,
+  completionTokens,
   requestCount,
-  rmbCost,
+  successCount,
+  failedCount,
   activeModel,
-  provider,
   hasUsableData,
+  modelCount,
 }: {
   tokenUsage: number;
+  promptTokens: number;
+  completionTokens: number;
   requestCount: number;
-  rmbCost: number;
+  successCount: number;
+  failedCount: number;
   activeModel: string;
-  provider: string;
   hasUsableData: boolean;
+  modelCount: number;
 }) {
   if (!hasUsableData) {
     return (
@@ -187,9 +216,9 @@ function MetricsGrid({
 
   const metrics = [
     {
-      label: "Token 用量",
+      label: "总 Token 用量",
       value: formatCompactNumber(tokenUsage),
-      subtext: `${tokenUsage.toLocaleString("zh-CN")} tokens`,
+      subtext: `输入 ${formatCompactNumber(promptTokens)} · 输出 ${formatCompactNumber(completionTokens)}`,
       icon: Zap,
       accent: "text-amber-400",
       bg: "bg-amber-400/10",
@@ -197,23 +226,15 @@ function MetricsGrid({
     {
       label: "请求次数",
       value: requestCount.toLocaleString("zh-CN"),
-      subtext: "累计调用",
+      subtext: `成功 ${successCount.toLocaleString("zh-CN")} · 失败 ${failedCount}`,
       icon: Activity,
       accent: "text-blue-400",
       bg: "bg-blue-400/10",
     },
     {
-      label: "估算费用",
-      value: formatCurrency(rmbCost),
-      subtext: "人民币",
-      icon: DollarSign,
-      accent: "text-emerald-400",
-      bg: "bg-emerald-400/10",
-    },
-    {
-      label: "当前模型",
-      value: activeModel || "未知",
-      subtext: provider || "未知 Provider",
+      label: "活跃模型",
+      value: modelCount > 0 ? String(modelCount) : "—",
+      subtext: modelCount > 0 ? `最常用: ${shortModelName(activeModel)}` : "暂无数据",
       icon: Cpu,
       accent: "text-purple-400",
       bg: "bg-purple-400/10",
@@ -221,7 +242,7 @@ function MetricsGrid({
   ];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-3">
       {metrics.map((metric) => (
         <div
           key={metric.label}
@@ -252,13 +273,11 @@ function StatusPanel({
   lastSuccessAt,
   updatedAt,
   provider,
-  activeModel,
 }: {
   isLive: boolean;
   lastSuccessAt: string | null;
   updatedAt: string;
   provider: string;
-  activeModel: string;
 }) {
   const items = [
     {
@@ -280,11 +299,6 @@ function StatusPanel({
       label: "服务提供商",
       value: provider || "未提供",
       icon: Server,
-    },
-    {
-      label: "活跃模型",
-      value: activeModel || "未提供",
-      icon: Cpu,
     },
   ];
 
@@ -313,14 +327,16 @@ function StatusPanel({
 function MetricsDetail({
   tokenUsage,
   requestCount,
-  rmbCost,
+  promptTokens,
+  completionTokens,
 }: {
   tokenUsage: number;
   requestCount: number;
-  rmbCost: number;
+  promptTokens: number;
+  completionTokens: number;
 }) {
-  const avgCostPerRequest = requestCount > 0 ? rmbCost / requestCount : 0;
   const avgTokensPerRequest = requestCount > 0 ? Math.round(tokenUsage / requestCount) : 0;
+  const promptRatio = tokenUsage > 0 ? ((promptTokens / tokenUsage) * 100).toFixed(1) : "0";
 
   return (
     <div className="rounded-xl border border-border bg-card p-6 lg:col-span-2">
@@ -335,22 +351,22 @@ function MetricsDetail({
           unit="tokens/req"
         />
         <AnalysisCard
-          label="平均每次请求费用"
-          value={`¥${avgCostPerRequest.toFixed(4)}`}
-          unit="元/req"
+          label="输入 Token 占比"
+          value={`${promptRatio}%`}
+          unit="prompt/total"
         />
         <AnalysisCard
-          label="每万 Token 费用"
-          value={tokenUsage > 0 ? `¥${((rmbCost / tokenUsage) * 10000).toFixed(2)}` : "—"}
-          unit="元/万token"
+          label="输出 Token 总量"
+          value={formatCompactNumber(completionTokens)}
+          unit="completion tokens"
         />
       </div>
 
       <div className="mt-6">
         <h3 className="mb-3 text-xs font-medium text-muted-foreground">
-          用量分布
+          Token 分布
         </h3>
-        <UsageBar tokenUsage={tokenUsage} requestCount={requestCount} rmbCost={rmbCost} />
+        <TokenBar promptTokens={promptTokens} completionTokens={completionTokens} />
       </div>
     </div>
   );
@@ -366,22 +382,19 @@ function AnalysisCard({ label, value, unit }: { label: string; value: string; un
   );
 }
 
-function UsageBar({
-  tokenUsage,
-  requestCount,
-  rmbCost,
+function TokenBar({
+  promptTokens,
+  completionTokens,
 }: {
-  tokenUsage: number;
-  requestCount: number;
-  rmbCost: number;
+  promptTokens: number;
+  completionTokens: number;
 }) {
-  const total = tokenUsage + requestCount + rmbCost;
+  const total = promptTokens + completionTokens;
   if (total === 0) return null;
 
   const segments = [
-    { label: "Token", pct: (tokenUsage / total) * 100, color: "bg-amber-400" },
-    { label: "请求", pct: (requestCount / total) * 100, color: "bg-blue-400" },
-    { label: "费用", pct: (rmbCost / total) * 100, color: "bg-emerald-400" },
+    { label: "输入 (Prompt)", pct: (promptTokens / total) * 100, color: "bg-amber-400" },
+    { label: "输出 (Completion)", pct: (completionTokens / total) * 100, color: "bg-blue-400" },
   ];
 
   return (
@@ -399,7 +412,7 @@ function UsageBar({
         {segments.map((seg) => (
           <div key={seg.label} className="flex items-center gap-2 text-xs text-muted-foreground">
             <div className={`h-2.5 w-2.5 rounded-full ${seg.color}`} />
-            {seg.label}
+            {seg.label} ({seg.pct.toFixed(1)}%)
           </div>
         ))}
       </div>
@@ -433,10 +446,8 @@ function formatCompactNumber(value: number) {
   return value.toLocaleString("zh-CN");
 }
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("zh-CN", {
-    style: "currency",
-    currency: "CNY",
-    maximumFractionDigits: 0,
-  }).format(value);
+function shortModelName(name: string): string {
+  if (!name) return "";
+  const parts = name.split("/");
+  return parts[parts.length - 1];
 }

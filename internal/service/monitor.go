@@ -127,18 +127,19 @@ func (s *MonitorService) GetUsageOverview(ctx context.Context, query model.Daily
 }
 
 func (s *MonitorService) GetMonitorSnapshot(ctx context.Context) (model.MonitorSnapshot, error) {
-	query := s.withDefaultPeriod(model.DailyActivityQuery{})
-	query = s.withDefaultDateRange(query)
+	now := time.Now().In(s.location)
+	startDate := now.AddDate(0, 0, -s.syncLookbackDays+1).Format("2006-01-02")
+	endDate := now.Format("2006-01-02")
 
-	cachedDays, err := s.store.ListCachedDailySpendData(ctx, query.StartDate, query.EndDate)
+	cachedDays, err := s.store.ListCachedDailySpendData(ctx, startDate, endDate)
 	if err != nil {
 		return model.MonitorSnapshot{}, err
 	}
 	latestSync := s.resolveLatestSyncAt(ctx, cachedDays)
 
-	if s.shouldRefreshSnapshot(latestSync, time.Now().In(s.location)) {
-		if _, err := s.SyncCache(ctx, time.Now().In(s.location)); err == nil {
-			cachedDays, err = s.store.ListCachedDailySpendData(ctx, query.StartDate, query.EndDate)
+	if s.shouldRefreshSnapshot(latestSync, now) {
+		if _, err := s.SyncCache(ctx, now); err == nil {
+			cachedDays, err = s.store.ListCachedDailySpendData(ctx, startDate, endDate)
 			if err != nil {
 				return model.MonitorSnapshot{}, err
 			}
@@ -160,11 +161,17 @@ func (s *MonitorService) GetMonitorSnapshot(ctx context.Context) (model.MonitorS
 	providers := sortNamedMetricsMap(providerTotals)
 
 	snapshot := model.MonitorSnapshot{
-		TokenUsage:   summary.TotalTokens,
-		RequestCount: summary.APIRequests,
-		RMBCost:      summary.Spend,
-		ReadmeSource: monitorSnapshotReadmeSource,
-		UpdatedAt:    formatSnapshotUpdatedAt(latestSync),
+		TokenUsage:       summary.TotalTokens,
+		PromptTokens:     summary.PromptTokens,
+		CompletionTokens: summary.CompletionTokens,
+		RequestCount:     summary.APIRequests,
+		SuccessCount:     summary.SuccessfulRequests,
+		FailedCount:      summary.FailedRequests,
+		RMBCost:          summary.Spend,
+		ReadmeSource:     monitorSnapshotReadmeSource,
+		UpdatedAt:        formatSnapshotUpdatedAt(latestSync),
+		StartDate:        startDate,
+		EndDate:          endDate,
 	}
 
 	if len(models) > 0 {

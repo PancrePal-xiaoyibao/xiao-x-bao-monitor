@@ -152,7 +152,7 @@ type UsageDay struct {
 	Metrics   SpendMetrics     `json:"metrics"`
 	Models    []NamedMetric    `json:"models,omitempty"`
 	Providers []NamedMetric    `json:"providers,omitempty"`
-	APIKeys   []NamedKeyMetric `json:"api_keys,omitempty"`
+	APIKeys   []NamedKeyMetric `json:"-"`
 }
 
 type UsageOverview struct {
@@ -162,17 +162,23 @@ type UsageOverview struct {
 	Days      []UsageDay         `json:"days"`
 	Models    []NamedMetric      `json:"models,omitempty"`
 	Providers []NamedMetric      `json:"providers,omitempty"`
-	APIKeys   []NamedKeyMetric   `json:"api_keys,omitempty"`
+	APIKeys   []NamedKeyMetric   `json:"-"`
 }
 
 type MonitorSnapshot struct {
-	TokenUsage   int64   `json:"tokenUsage"`
-	RequestCount int64   `json:"requestCount"`
-	RMBCost      float64 `json:"rmbCost"`
-	ActiveModel  string  `json:"activeModel"`
-	Provider     string  `json:"provider"`
-	ReadmeSource string  `json:"readmeSource"`
-	UpdatedAt    string  `json:"updatedAt"`
+	TokenUsage       int64   `json:"tokenUsage"`
+	PromptTokens     int64   `json:"promptTokens"`
+	CompletionTokens int64   `json:"completionTokens"`
+	RequestCount     int64   `json:"requestCount"`
+	SuccessCount     int64   `json:"successCount"`
+	FailedCount      int64   `json:"failedCount"`
+	RMBCost          float64 `json:"rmbCost"`
+	ActiveModel      string  `json:"activeModel"`
+	Provider         string  `json:"provider"`
+	ReadmeSource     string  `json:"readmeSource"`
+	UpdatedAt        string  `json:"updatedAt"`
+	StartDate        string  `json:"startDate"`
+	EndDate          string  `json:"endDate"`
 }
 
 type CachedDailySpendData struct {

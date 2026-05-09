@@ -1,15 +1,21 @@
 export interface MonitorApiSnapshot {
   tokenUsage: number;
+  promptTokens: number;
+  completionTokens: number;
   requestCount: number;
+  successCount: number;
+  failedCount: number;
   rmbCost: number;
   activeModel: string;
   provider: string;
   readmeSource: string;
   updatedAt: string;
+  startDate: string;
+  endDate: string;
 }
 
 export const siteContent = {
-  title: "小馨宝 AI 调用监控",
+  title: "小X宝 AI 调用监控",
   subtitle: "面向合作伙伴的实时运行数据看板",
   refreshHint: "数据每 15 秒自动刷新",
   liveText: "实时数据",

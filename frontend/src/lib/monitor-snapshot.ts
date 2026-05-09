@@ -5,12 +5,18 @@ export const LOCAL_SNAPSHOT_URL = "/monitor-fallback.json";
 
 export const DEFAULT_SNAPSHOT: MonitorApiSnapshot = {
   tokenUsage: 0,
+  promptTokens: 0,
+  completionTokens: 0,
   requestCount: 0,
+  successCount: 0,
+  failedCount: 0,
   rmbCost: 0,
   activeModel: "",
   provider: "",
   readmeSource: "",
   updatedAt: "",
+  startDate: "",
+  endDate: "",
 };
 
 export function getMonitorUrl() {
@@ -40,6 +46,8 @@ export function normalizeMonitorSnapshot(raw: unknown): MonitorApiSnapshot {
       usage.total,
       usage.tokens,
     ),
+    promptTokens: pickNumber(obj.promptTokens, obj.prompt_tokens),
+    completionTokens: pickNumber(obj.completionTokens, obj.completion_tokens),
     requestCount: pickNumber(
       obj.requestCount,
       obj.requests,
@@ -47,6 +55,8 @@ export function normalizeMonitorSnapshot(raw: unknown): MonitorApiSnapshot {
       usage.requests,
       meta.requestCount,
     ),
+    successCount: pickNumber(obj.successCount, obj.successful_requests),
+    failedCount: pickNumber(obj.failedCount, obj.failed_requests),
     rmbCost: pickNumber(
       obj.rmbCost,
       obj.priceRmb,
@@ -75,6 +85,8 @@ export function normalizeMonitorSnapshot(raw: unknown): MonitorApiSnapshot {
       obj.updated_at,
       meta.updatedAt,
     ),
+    startDate: pickString(obj.startDate, obj.start_date),
+    endDate: pickString(obj.endDate, obj.end_date),
   };
 }
 
