@@ -29,11 +29,17 @@ FROM alpine:3.20
 
 RUN apk add --no-cache ca-certificates tzdata
 
+RUN adduser -D -u 1000 appuser
+
 WORKDIR /app
 
 COPY --from=backend-build /monitor /app/monitor
 COPY --from=frontend-build /app/frontend/dist /app/frontend/dist
 COPY config/ /app/config/
+
+RUN mkdir -p /app/data && chown -R appuser:appuser /app/data
+
+USER appuser
 
 ENV HTTP_ADDR=:8080
 ENV FRONTEND_DIST=/app/frontend/dist

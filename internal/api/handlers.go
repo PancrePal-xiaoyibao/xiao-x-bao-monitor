@@ -1,7 +1,6 @@
 package api
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"io/fs"
@@ -15,6 +14,8 @@ import (
 	"github.com/liueic/xiao-x-bao-monitor/internal/model"
 	"github.com/liueic/xiao-x-bao-monitor/internal/service"
 )
+
+const maxRequestBodySize = 1 << 20 // 1MB
 
 type Handler struct {
 	service  *service.MonitorService
@@ -33,15 +34,8 @@ func NewHandler(service *service.MonitorService, logger *log.Logger, location *t
 	mux.HandleFunc("GET /healthz", handler.healthz)
 	mux.HandleFunc("GET /api/v1/monitor/snapshot", handler.getMonitorSnapshot)
 	mux.HandleFunc("GET /api/v1/usage/daily", handler.getDailyUsage)
-	mux.HandleFunc("GET /api/v1/usage/logs", handler.getSpendLogs)
 	mux.HandleFunc("GET /api/v1/models", handler.getModels)
 	mux.HandleFunc("GET /api/v1/providers", handler.getProviders)
-	mux.HandleFunc("GET /api/v1/thresholds", handler.listThresholds)
-	mux.HandleFunc("POST /api/v1/thresholds", handler.createThreshold)
-	mux.HandleFunc("PUT /api/v1/thresholds/{id}", handler.updateThreshold)
-	mux.HandleFunc("DELETE /api/v1/thresholds/{id}", handler.deleteThreshold)
-	mux.HandleFunc("POST /api/v1/alerts/check", handler.checkAlerts)
-	mux.HandleFunc("GET /api/v1/alerts/history", handler.listAlertHistory)
 
 	if dir := os.Getenv("FRONTEND_DIST"); dir != "" {
 		mux.Handle("/", spaHandler(os.DirFS(dir)))
@@ -67,8 +61,6 @@ func (h *Handler) getDailyUsage(w http.ResponseWriter, r *http.Request) {
 	query := model.DailyActivityQuery{
 		StartDate: strings.TrimSpace(r.URL.Query().Get("start_date")),
 		EndDate:   strings.TrimSpace(r.URL.Query().Get("end_date")),
-		UserID:    strings.TrimSpace(r.URL.Query().Get("user_id")),
-		APIKey:    strings.TrimSpace(r.URL.Query().Get("api_key")),
 		Model:     strings.TrimSpace(r.URL.Query().Get("model")),
 		Period:    strings.TrimSpace(r.URL.Query().Get("period")),
 	}
@@ -82,50 +74,6 @@ func (h *Handler) getDailyUsage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response, err := h.service.GetUsageOverview(r.Context(), query)
-	if err != nil {
-		h.writeServiceError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, response)
-}
-
-func (h *Handler) getSpendLogs(w http.ResponseWriter, r *http.Request) {
-	query := model.SpendLogsQuery{
-		APIKey:       strings.TrimSpace(r.URL.Query().Get("api_key")),
-		UserID:       strings.TrimSpace(r.URL.Query().Get("user_id")),
-		RequestID:    strings.TrimSpace(r.URL.Query().Get("request_id")),
-		TeamID:       strings.TrimSpace(r.URL.Query().Get("team_id")),
-		StartDate:    strings.TrimSpace(r.URL.Query().Get("start_date")),
-		EndDate:      strings.TrimSpace(r.URL.Query().Get("end_date")),
-		StatusFilter: strings.TrimSpace(r.URL.Query().Get("status_filter")),
-		Model:        strings.TrimSpace(r.URL.Query().Get("model")),
-		ModelID:      strings.TrimSpace(r.URL.Query().Get("model_id")),
-		KeyAlias:     strings.TrimSpace(r.URL.Query().Get("key_alias")),
-		EndUser:      strings.TrimSpace(r.URL.Query().Get("end_user")),
-		ErrorCode:    strings.TrimSpace(r.URL.Query().Get("error_code")),
-		ErrorMessage: strings.TrimSpace(r.URL.Query().Get("error_message")),
-		Page:         parseIntOrDefault(r.URL.Query().Get("page"), 1),
-		PageSize:     parseIntOrDefault(r.URL.Query().Get("page_size"), 50),
-	}
-
-	if minSpendText := strings.TrimSpace(r.URL.Query().Get("min_spend")); minSpendText != "" {
-		value, err := strconv.ParseFloat(minSpendText, 64)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid min_spend")
-			return
-		}
-		query.MinSpend = &value
-	}
-	if maxSpendText := strings.TrimSpace(r.URL.Query().Get("max_spend")); maxSpendText != "" {
-		value, err := strconv.ParseFloat(maxSpendText, 64)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid max_spend")
-			return
-		}
-		query.MaxSpend = &value
-	}
-
-	response, err := h.service.GetSpendLogs(r.Context(), query)
 	if err != nil {
 		h.writeServiceError(w, err)
 		return
@@ -151,106 +99,10 @@ func (h *Handler) getProviders(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, response)
 }
 
-func (h *Handler) listThresholds(w http.ResponseWriter, r *http.Request) {
-	response, err := h.service.ListThresholds(r.Context())
-	if err != nil {
-		h.writeServiceError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, response)
-}
-
-func (h *Handler) createThreshold(w http.ResponseWriter, r *http.Request) {
-	var request model.Threshold
-	if err := decodeJSON(r, &request); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	response, err := h.service.CreateThreshold(r.Context(), request)
-	if err != nil {
-		h.writeServiceError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusCreated, response)
-}
-
-func (h *Handler) updateThreshold(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid threshold id")
-		return
-	}
-
-	var request model.Threshold
-	if err := decodeJSON(r, &request); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	request.ID = id
-
-	response, err := h.service.UpdateThreshold(r.Context(), request)
-	if err != nil {
-		h.writeServiceError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, response)
-}
-
-func (h *Handler) deleteThreshold(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid threshold id")
-		return
-	}
-
-	if err := h.service.DeleteThreshold(r.Context(), id); err != nil {
-		h.writeServiceError(w, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
-}
-
-func (h *Handler) checkAlerts(w http.ResponseWriter, r *http.Request) {
-	dateText := strings.TrimSpace(r.URL.Query().Get("date"))
-	var alertDate time.Time
-	var err error
-	if dateText == "" {
-		alertDate = time.Now().In(h.location)
-	} else {
-		alertDate, err = time.ParseInLocation("2006-01-02", dateText, h.location)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid date, expected YYYY-MM-DD")
-			return
-		}
-	}
-
-	response, err := h.service.CheckThresholds(r.Context(), alertDate)
-	if err != nil {
-		h.writeServiceError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, response)
-}
-
-func (h *Handler) listAlertHistory(w http.ResponseWriter, r *http.Request) {
-	limit := parseIntOrDefault(r.URL.Query().Get("limit"), 50)
-	response, err := h.service.ListAlertEvents(r.Context(), limit)
-	if err != nil {
-		h.writeServiceError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, response)
-}
-
 func (h *Handler) writeServiceError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, sql.ErrNoRows):
-		writeError(w, http.StatusNotFound, "resource not found")
-	case errors.Is(err, service.ErrSpendLogsNotSupported):
-		writeError(w, http.StatusNotImplemented, err.Error())
 	case errors.Is(err, service.ErrUserFilterUnsupported):
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeError(w, http.StatusBadRequest, "unsupported filter")
 	case strings.Contains(err.Error(), "validation:"),
 		strings.Contains(err.Error(), "invalid"),
 		strings.Contains(err.Error(), "required"),
@@ -259,18 +111,8 @@ func (h *Handler) writeServiceError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusBadRequest, err.Error())
 	default:
 		h.logger.Printf("request failed: %v", err)
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeError(w, http.StatusBadGateway, "upstream service unavailable")
 	}
-}
-
-func decodeJSON(r *http.Request, out any) error {
-	defer r.Body.Close()
-
-	decoder := json.NewDecoder(r.Body)
-	if err := decoder.Decode(out); err != nil {
-		return err
-	}
-	return nil
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {
@@ -283,17 +125,6 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 
 func writeError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]string{"error": message})
-}
-
-func parseIntOrDefault(value string, fallback int) int {
-	if strings.TrimSpace(value) == "" {
-		return fallback
-	}
-	parsed, err := strconv.Atoi(value)
-	if err != nil {
-		return fallback
-	}
-	return parsed
 }
 
 func loggingMiddleware(logger *log.Logger, next http.Handler) http.Handler {
@@ -317,10 +148,15 @@ func recoverMiddleware(next http.Handler) http.Handler {
 }
 
 func withCORS(next http.Handler) http.Handler {
+	allowedOrigin := os.Getenv("CORS_ORIGIN")
+	if allowedOrigin == "" {
+		allowedOrigin = "*"
+	}
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
