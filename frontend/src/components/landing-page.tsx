@@ -1,6 +1,7 @@
 import logoIcon from "@/assets/logo-icon.png";
 import sponsorSiliconflow from "@/assets/sponsor-siliconflow.png";
 import sponsorStepfun from "@/assets/sponsor-stepfun.png";
+import sponsorKnows from "@/assets/sponsor-knows.png";
 import {
   Activity,
   ArrowUpRight,
@@ -263,6 +264,10 @@ function Sponsors() {
           </a>
           <a href="https://www.stepfun.com" target="_blank" rel="noreferrer" className="transition hover:opacity-80">
             <img src={sponsorStepfun} alt="StepFun 阶跃星辰" className="h-8" />
+          </a>
+          <a href="https://www.medknows.com/" target="_blank" rel="noreferrer" className="flex items-center gap-2 transition hover:opacity-80">
+            <img src={sponsorKnows} alt="KnowS" className="h-8 w-8" />
+            <span className="text-sm font-medium text-muted-foreground">KnowS</span>
           </a>
         </div>
       </div>
