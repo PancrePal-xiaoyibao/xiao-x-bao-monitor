@@ -25,7 +25,7 @@ export class RuntimeErrorBoundary extends React.Component<
             background: "#050505",
             color: "#fff",
             padding: "32px",
-            fontFamily: "Barlow, sans-serif",
+            fontFamily: "Inter, -apple-system, sans-serif",
           }}
         >
           <div

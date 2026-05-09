@@ -78,8 +78,8 @@ VITE_MONITOR_API_URL=https://your-monitor-api.example.com/api/v1/monitor/snapsho
 ## 本地启动
 
 ```bash
-npm install
-npm run dev
+bun install
+bun run dev
 ```
 
 默认会通过 Vite proxy 把 `/api/*` 转发到 `http://127.0.0.1:8080`，所以本地联调时可以直接先启动后端，再启动前端。
@@ -87,7 +87,7 @@ npm run dev
 ## 构建
 
 ```bash
-npm run build
+bun run build
 ```
 
 ## 关键文件

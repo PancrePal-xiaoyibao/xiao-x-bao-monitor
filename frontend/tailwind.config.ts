@@ -6,13 +6,12 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        heading: ["'Instrument Serif'", "serif"],
-        body: ["'Barlow'", "sans-serif"],
+        sans: ["'Inter'", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
       },
       borderRadius: {
         lg: "var(--radius)",
-        md: "calc(var(--radius) - 4px)",
-        sm: "calc(var(--radius) - 8px)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
       },
       colors: {
         background: "hsl(var(--background))",
@@ -31,12 +30,8 @@ export default {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
-      },
-      boxShadow: {
-        glass: "var(--glass-shadow)",
-      },
-      backdropBlur: {
-        glass: "var(--glass-blur)",
+        success: "hsl(var(--success))",
+        warning: "hsl(var(--warning))",
       },
     },
   },
