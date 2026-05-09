@@ -152,6 +152,7 @@ type UsageDay struct {
 	Metrics   SpendMetrics     `json:"metrics"`
 	Models    []NamedMetric    `json:"models,omitempty"`
 	Providers []NamedMetric    `json:"providers,omitempty"`
+	MCPTools  []NamedMetric    `json:"mcp_tools,omitempty"`
 	APIKeys   []NamedKeyMetric `json:"-"`
 }
 
@@ -162,6 +163,7 @@ type UsageOverview struct {
 	Days      []UsageDay         `json:"days"`
 	Models    []NamedMetric      `json:"models,omitempty"`
 	Providers []NamedMetric      `json:"providers,omitempty"`
+	MCPTools  []NamedMetric      `json:"mcp_tools,omitempty"`
 	APIKeys   []NamedKeyMetric   `json:"-"`
 }
 

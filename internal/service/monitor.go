@@ -97,6 +97,7 @@ func (s *MonitorService) GetUsageOverview(ctx context.Context, query model.Daily
 	modelTotals := make(map[string]model.NamedMetric)
 	providerTotals := make(map[string]model.NamedMetric)
 	apiKeyTotals := make(map[string]model.NamedKeyMetric)
+	mcpToolTotals := make(map[string]model.NamedMetric)
 
 	var usageDays []model.UsageDay
 	for _, cachedDay := range cachedDays {
@@ -112,6 +113,7 @@ func (s *MonitorService) GetUsageOverview(ctx context.Context, query model.Daily
 		mergeNamedMetricTotals(modelTotals, usageDay.Models)
 		mergeNamedMetricTotals(providerTotals, usageDay.Providers)
 		mergeNamedKeyMetricTotals(apiKeyTotals, usageDay.APIKeys)
+		mergeNamedMetricTotals(mcpToolTotals, usageDay.MCPTools)
 	}
 
 	if query.Period == "day" {
@@ -123,6 +125,7 @@ func (s *MonitorService) GetUsageOverview(ctx context.Context, query model.Daily
 	overview.Models = sortNamedMetricsMap(modelTotals)
 	overview.Providers = sortNamedMetricsMap(providerTotals)
 	overview.APIKeys = sortNamedKeyMetricsMap(apiKeyTotals)
+	overview.MCPTools = sortNamedMetricsMap(mcpToolTotals)
 	return overview, nil
 }
 
@@ -459,6 +462,7 @@ func (s *MonitorService) buildUsageDay(query model.DailyActivityQuery, day model
 			Models:    s.normalizeMetricMap(day.Breakdown.Models, true),
 			Providers: normalizeMetricMap(day.Breakdown.Providers),
 			APIKeys:   normalizeKeyMetricMap(day.Breakdown.APIKeys),
+			MCPTools:  normalizeMetricMap(day.Breakdown.MCPServers),
 		}, true, nil
 	}
 }
@@ -945,6 +949,7 @@ func groupUsageDaysByPeriod(days []model.UsageDay, period string) []model.UsageD
 		models    map[string]model.NamedMetric
 		providers map[string]model.NamedMetric
 		apiKeys   map[string]model.NamedKeyMetric
+		mcpTools  map[string]model.NamedMetric
 	}
 
 	groups := make(map[string]*periodGroup)
@@ -961,6 +966,7 @@ func groupUsageDaysByPeriod(days []model.UsageDay, period string) []model.UsageD
 				models:    make(map[string]model.NamedMetric),
 				providers: make(map[string]model.NamedMetric),
 				apiKeys:   make(map[string]model.NamedKeyMetric),
+				mcpTools:  make(map[string]model.NamedMetric),
 			}
 			groups[key] = group
 			order = append(order, key)
@@ -969,6 +975,7 @@ func groupUsageDaysByPeriod(days []model.UsageDay, period string) []model.UsageD
 		mergeNamedMetricTotals(group.models, day.Models)
 		mergeNamedMetricTotals(group.providers, day.Providers)
 		mergeNamedKeyMetricTotals(group.apiKeys, day.APIKeys)
+		mergeNamedMetricTotals(group.mcpTools, day.MCPTools)
 	}
 
 	result := make([]model.UsageDay, 0, len(order))
@@ -982,6 +989,7 @@ func groupUsageDaysByPeriod(days []model.UsageDay, period string) []model.UsageD
 			Models:    sortNamedMetricsMap(group.models),
 			Providers: sortNamedMetricsMap(group.providers),
 			APIKeys:   sortNamedKeyMetricsMap(group.apiKeys),
+			MCPTools:  sortNamedMetricsMap(group.mcpTools),
 		})
 	}
 	return result

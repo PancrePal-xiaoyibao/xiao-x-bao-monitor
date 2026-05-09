@@ -32,7 +32,7 @@ export interface UsageDay {
   metrics: SpendMetrics;
   models?: NamedMetric[];
   providers?: NamedMetric[];
-  api_keys?: NamedKeyMetric[];
+  mcp_tools?: NamedMetric[];
 }
 
 export interface UsageOverview {
@@ -46,5 +46,5 @@ export interface UsageOverview {
   days: UsageDay[];
   models?: NamedMetric[];
   providers?: NamedMetric[];
-  api_keys?: NamedKeyMetric[];
+  mcp_tools?: NamedMetric[];
 }

@@ -4,8 +4,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"io/fs"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -40,6 +42,11 @@ func NewHandler(service *service.MonitorService, logger *log.Logger, location *t
 	mux.HandleFunc("DELETE /api/v1/thresholds/{id}", handler.deleteThreshold)
 	mux.HandleFunc("POST /api/v1/alerts/check", handler.checkAlerts)
 	mux.HandleFunc("GET /api/v1/alerts/history", handler.listAlertHistory)
+
+	if dir := os.Getenv("FRONTEND_DIST"); dir != "" {
+		mux.Handle("/", spaHandler(os.DirFS(dir)))
+	}
+
 	return recoverMiddleware(withCORS(loggingMiddleware(logger, mux)))
 }
 
@@ -321,5 +328,21 @@ func withCORS(next http.Handler) http.Handler {
 		}
 
 		next.ServeHTTP(w, r)
+	})
+}
+
+func spaHandler(root fs.FS) http.Handler {
+	fileServer := http.FileServerFS(root)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/")
+		if path == "" {
+			path = "index.html"
+		}
+		if _, err := fs.Stat(root, path); err == nil {
+			fileServer.ServeHTTP(w, r)
+			return
+		}
+		r.URL.Path = "/"
+		fileServer.ServeHTTP(w, r)
 	})
 }
