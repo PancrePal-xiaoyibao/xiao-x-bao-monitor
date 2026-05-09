@@ -42,7 +42,7 @@ func TestMonitorAPIIntegration(t *testing.T) {
 	}
 
 	location := time.FixedZone("UTC+8", 8*3600)
-	mailer := &recordingMailer{}
+	mailer := &noopMailer{}
 	providerConfigPath := filepath.Join(t.TempDir(), "provider-config.yaml")
 	writeProviderConfigFile(t, providerConfigPath, `
 model_list:
@@ -109,16 +109,6 @@ model_list:
 		}
 	})
 
-	t.Run("spend logs endpoint is disabled in cache mode", func(t *testing.T) {
-		response, status := mustJSONRequest[map[string]any](t, http.MethodGet, server.URL+"/api/v1/usage/logs?model=gpt-4o", nil)
-		if status != http.StatusNotImplemented {
-			t.Fatalf("expected status 501, got %d", status)
-		}
-		if !strings.Contains(response["error"].(string), "not supported") {
-			t.Fatalf("unexpected spend logs response: %#v", response)
-		}
-	})
-
 	t.Run("models endpoint returns cached data", func(t *testing.T) {
 		response, status := mustJSONRequest[map[string]any](t, http.MethodGet, server.URL+"/api/v1/models?litellm_model_id=openai/gpt-4o", nil)
 		if status != http.StatusOK {
@@ -133,46 +123,29 @@ model_list:
 		}
 	})
 
-	t.Run("threshold and alert check work end to end", func(t *testing.T) {
-		thresholdPayload := map[string]any{
-			"name":            "daily-openai-spend",
-			"scope":           "provider",
-			"scope_value":     "openai",
-			"metric":          "spend",
-			"threshold_value": 10,
-			"emails":          []string{"ops@example.com"},
-			"enabled":         true,
+	t.Run("removed endpoints return 404", func(t *testing.T) {
+		endpoints := []string{
+			"/api/v1/usage/logs",
+			"/api/v1/thresholds",
+			"/api/v1/alerts/check",
+			"/api/v1/alerts/history",
 		}
-		created, status := mustJSONRequest[model.Threshold](t, http.MethodPost, server.URL+"/api/v1/thresholds", thresholdPayload)
-		if status != http.StatusCreated {
-			t.Fatalf("expected status 201, got %d", status)
-		}
-		if created.ID <= 0 {
-			t.Fatalf("expected created threshold id, got %d", created.ID)
-		}
-
-		result, status := mustJSONRequest[model.AlertCheckResult](t, http.MethodPost, server.URL+"/api/v1/alerts/check?date=2026-04-22", nil)
-		if status != http.StatusOK {
-			t.Fatalf("expected status 200, got %d", status)
-		}
-		if len(result.Results) != 1 {
-			t.Fatalf("expected 1 alert result, got %d", len(result.Results))
-		}
-		if result.Results[0].NotificationStatus != "sent" {
-			t.Fatalf("expected alert status sent, got %s", result.Results[0].NotificationStatus)
-		}
-		if mailer.sent != 1 {
-			t.Fatalf("expected one alert email send, got %d", mailer.sent)
+		for _, ep := range endpoints {
+			resp, err := http.Get(server.URL + ep)
+			if err != nil {
+				t.Fatalf("request %s: %v", ep, err)
+			}
+			resp.Body.Close()
+			if resp.StatusCode != http.StatusNotFound {
+				t.Errorf("%s: expected 404, got %d", ep, resp.StatusCode)
+			}
 		}
 	})
 }
 
-type recordingMailer struct {
-	sent int
-}
+type noopMailer struct{}
 
-func (m *recordingMailer) Send(ctx context.Context, subject, body string, recipients []string) error {
-	m.sent++
+func (m *noopMailer) Send(ctx context.Context, subject, body string, recipients []string) error {
 	return nil
 }
 
@@ -273,19 +246,6 @@ func newFakeLiteLLMServer(t *testing.T) *fakeLiteLLMServer {
 					"total_spend":        12.5,
 					"total_api_requests": 10,
 				},
-			})
-		case "/spend/logs/v2":
-			requireAPIKey(t, r)
-			if got := r.URL.Query().Get("model"); got != "gpt-4o" {
-				t.Fatalf("expected spend logs model filter gpt-4o, got %q", got)
-			}
-			writeJSON(t, w, map[string]any{
-				"logs": []map[string]any{
-					{"request_id": "req-1", "model": "gpt-4o", "spend": 1.25},
-				},
-				"total":     1,
-				"page":      1,
-				"page_size": 50,
 			})
 		case "/model/info":
 			requireAPIKey(t, r)
